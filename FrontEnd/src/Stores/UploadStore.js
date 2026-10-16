@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 export const useUploadStore = defineStore("upload", {
   state: () => ({
     arquivo: null,
+    nomeArquivoProcessado: "",
     dadosOriginais: [],
     dadosTratados: [],
     erros: [],
@@ -20,8 +21,11 @@ getters: {
 state.dadosTratados.reduce((linhasComErro, cliente, index) => {
   const motivos = [];
   const nivel = String (cliente.nivel_cliente|| "").trim().toUpperCase();
-  const faturamentoTexto = String(cliente.faturamento_anual || "").trim().toLowerCase();
-  const faturamento = Number(faturamentoTexto.replace(/\./g, "").replace(",", "."));
+  const faturamentoOriginal = cliente.faturamento_anual;
+  const faturamentoTexto = String(faturamentoOriginal ?? "").trim().toLowerCase();
+  const faturamento = typeof faturamentoOriginal === "number"
+    ? faturamentoOriginal
+    : Number(faturamentoTexto.replace(/\./g, "").replace(",", "."));
 
   if (!faturamentoTexto || !Number.isFinite(faturamento) || faturamento <= 0) {
     motivos.push("Faturamento não pode ser vazio e deve ser maior que zero.");
@@ -39,11 +43,15 @@ state.dadosTratados.reduce((linhasComErro, cliente, index) => {
     motivos.push("Segmento não pode ser vazio.");
   }
 
+  if (!["A", "B", "C"].includes(nivel)) {
+    motivos.push("Nível do cliente deve ser A, B ou C.");
+  }
+
   if (motivos.length > 0) {
     linhasComErro.push({
       ...cliente,
       linha: index + 2,
-      motivos: motivos.join(", ")
+      motivos
     });
   }
 
@@ -94,17 +102,28 @@ actions: {
 
     this.carregando = true;
 
-    const buffer = await this.arquivo.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array" });
-    const primeiraAba = workbook.SheetNames[0];
-    const planilha = workbook.Sheets[primeiraAba];
+    try {
+      const buffer = await this.arquivo.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const primeiraAba = workbook.SheetNames[0];
 
-    const linhas = XLSX.utils.sheet_to_json(planilha, { defval: "" });
+      if (!primeiraAba) {
+        throw new Error("A planilha não contém nenhuma aba para análise.");
+      }
 
-    this.dadosOriginais = linhas;
-    this.dadosTratados = linhas.map((linha)=> this.tratarLinha(linha));
-    this.carregando = false;
+      const planilha = workbook.Sheets[primeiraAba];
+      const linhas = XLSX.utils.sheet_to_json(planilha, { defval: "" });
 
+      if (linhas.length === 0) {
+        throw new Error("A primeira aba não contém registros para análise.");
+      }
+
+      this.dadosOriginais = linhas;
+      this.dadosTratados = linhas.map((linha)=> this.tratarLinha(linha));
+      this.nomeArquivoProcessado = this.arquivo.name;
+    } finally {
+      this.carregando = false;
+    }
   },
   tratarLinha(linha) {
     const segmentoNormalizado = this.normalizarSegmento(linha.segmento);

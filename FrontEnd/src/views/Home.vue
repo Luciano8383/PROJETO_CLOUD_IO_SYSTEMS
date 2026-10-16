@@ -2,7 +2,7 @@
   <div class="bg-[#484848] text-white min-h-screen flex flex-col justify-between font-sans selection:bg-[#00C9D1] selection:text-[#484848]">
     
     <!-- Navbar / Cabeçalho -->
-   <header class="w-full max-w-7xl mx-auto px-8 py-12 flex justify-between items-center z-20">
+   <header class="w-full max-w-7xl mx-auto px-8 py-5 flex justify-between items-center z-20 bg-[#006464] border border-[#0F928C] rounded-2xl shadow-lg shadow-black/20">
   <a href="#" class="inline-block transition hover:opacity-80">
     <img 
       src="../assets/Image_2.jpg" 
@@ -11,7 +11,7 @@
     />
   </a>
 
-  <nav class="hidden md:flex items-center space-x-12 text-base font-medium text-gray-300">
+  <nav class="hidden md:flex items-center space-x-12 text-base font-medium text-white">
     <a href="#" class="hover:text-[#00C9D1] transition">Home</a>
     <a href="#" class="hover:text-[#00C9D1] transition">Platform</a>
     <a href="#" class="hover:text-[#00C9D1] transition">Services</a>

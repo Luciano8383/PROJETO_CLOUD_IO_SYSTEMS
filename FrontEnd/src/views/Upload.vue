@@ -108,8 +108,11 @@
           {{ errorMessage }}
         </div>
 
-        <div v-if="successMessage" class="p-3 bg-[#BEED3B]/10 border border-[#BEED3B]/40 text-[#BEED3B] text-xs rounded-lg text-center">
-          {{ successMessage }}
+        <div v-if="successMessage" class="p-3 bg-[#BEED3B]/10 border border-[#BEED3B]/40 text-[#BEED3B] text-xs rounded-lg text-center space-y-2">
+          <p>{{ successMessage }}</p>
+          <router-link to="/relatorio" class="inline-block underline font-semibold hover:text-white">
+            Ver relatório da planilha
+          </router-link>
         </div>
 
         <!-- Barra de Progresso do Processamento -->
@@ -158,7 +161,9 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useUploadStore } from '../Stores/UploadStore';
 
+const uploadStore = useUploadStore();
 const fileInput = ref(null);
 const selectedFile = ref(null);
 const isDragging = ref(false);
@@ -192,6 +197,9 @@ const handleFile = (file) => {
   successMessage.value = '';
   if (validateFile(file)) {
     selectedFile.value = file;
+    uploadStore.selecionarArquivo(file);
+  } else {
+    uploadStore.selecionarArquivo(null);
   }
 };
 
@@ -222,6 +230,7 @@ const onDrop = (event) => {
 
 const removeFile = () => {
   selectedFile.value = null;
+  uploadStore.selecionarArquivo(null);
   errorMessage.value = '';
   successMessage.value = '';
   if (fileInput.value) {
@@ -237,28 +246,25 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const processUpload = () => {
+const processUpload = async () => {
   if (!selectedFile.value || isProcessing.value) return;
 
   isProcessing.value = true;
-  uploadProgress.value = 0;
+  uploadProgress.value = 10;
   errorMessage.value = '';
   successMessage.value = '';
 
-  const interval = setInterval(() => {
-    uploadProgress.value += 10;
-    if (uploadProgress.value >= 100) {
-      uploadProgress.value = 100;
-      clearInterval(interval);
-      
-      setTimeout(() => {
-        isProcessing.value = false;
-        successMessage.value = `Arquivo "${selectedFile.value.name}" processado com sucesso!`;
-        selectedFile.value = null;
-        if (fileInput.value) fileInput.value.value = '';
-      }, 400);
-    }
-  }, 150);
+  try {
+    await uploadStore.processarPlanilha();
+    uploadProgress.value = 100;
+    successMessage.value = `Arquivo "${selectedFile.value.name}" analisado. ${uploadStore.inconsistencias.length} linha(s) com inconsistências encontrada(s).`;
+    selectedFile.value = null;
+    if (fileInput.value) fileInput.value.value = '';
+  } catch (error) {
+    errorMessage.value = `Não foi possível processar a planilha: ${error.message}`;
+  } finally {
+    isProcessing.value = false;
+  }
 };
 </script>
 

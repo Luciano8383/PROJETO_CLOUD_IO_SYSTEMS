@@ -28,21 +28,86 @@
         </div>
 
         <!-- Painel Direito (Login) -->
-        <div class="bg-white p-12 md:w-1/2 flex flex-col justify-center order-1 md:order-2">
+        <div class="bg-white p-8 md:p-12 md:w-1/2 flex flex-col justify-center order-1 md:order-2">
             <h2 class="text-4xl font-bold text-black mb-8">LOGIN</h2>
             
-            <form class="space-y-6" @submit.prevent>
+            <form class="space-y-6" @submit.prevent="entrar">
                 <div>
-                    <input type="email" placeholder="Your email" class="w-full px-5 py-4 bg-gray-100 rounded-lg placeholder:text-gray-400 focus:ring-2 focus:ring-[#0F928C] focus:bg-white focus:outline-none transition">
+                    <input v-model.trim="loginEmail" type="email" placeholder="E-mail" aria-label="E-mail" autocomplete="email" required class="w-full px-5 py-4 bg-gray-100 rounded-lg placeholder:text-gray-400 focus:ring-2 focus:ring-[#0F928C] focus:bg-white focus:outline-none transition">
                 </div>
                 <div>
-                    <input type="password" placeholder="Enter Password" class="w-full px-5 py-4 bg-gray-100 rounded-lg placeholder:text-gray-400 focus:ring-2 focus:ring-[#0F928C] focus:bg-white focus:outline-none transition">
+                    <input v-model="loginSenha" type="password" placeholder="Senha" aria-label="Senha" autocomplete="current-password" required class="w-full px-5 py-4 bg-gray-100 rounded-lg placeholder:text-gray-400 focus:ring-2 focus:ring-[#0F928C] focus:bg-white focus:outline-none transition">
                 </div>
                 <div>
-                    <button type="submit" class="w-full px-5 py-4 bg-[#006464] text-white font-bold rounded-lg hover:bg-[#0F928C] transition">
-                        LOGIN
+                    <button type="submit" :disabled="entrando" class="w-full px-5 py-4 bg-[#006464] text-white font-bold rounded-lg hover:bg-[#0F928C] transition disabled:cursor-not-allowed disabled:opacity-60">
+                        {{ entrando ? 'ENTRANDO...' : 'LOGIN' }}
                     </button>
                 </div>
+                <p v-if="erroLogin" class="text-sm text-red-700" role="alert">{{ erroLogin }}</p>
+            </form>
+
+            <div class="mt-6 border-t border-gray-200 pt-5">
+                <p class="text-center text-sm text-gray-600">Ainda não tem uma conta?</p>
+                <button
+                    type="button"
+                    class="mt-3 w-full rounded-lg border border-[#006464] px-5 py-3 font-bold text-[#006464] transition hover:bg-[#006464]/5 focus:outline-none focus:ring-2 focus:ring-[#0F928C]/50"
+                    :aria-expanded="cadastroAberto"
+                    aria-controls="cadastro-form"
+                    @click="alternarCadastro"
+                >
+                    {{ cadastroAberto ? 'Fechar cadastro' : 'Solicitar cadastro' }}
+                </button>
+            </div>
+
+            <form
+                v-if="cadastroAberto"
+                id="cadastro-form"
+                class="mt-5 space-y-4"
+                @submit.prevent="cadastrar"
+            >
+                <h3 class="text-lg font-bold text-gray-900">Solicitação de acesso</h3>
+                <input
+                    v-model.trim="nome"
+                    type="text"
+                    placeholder="Nome"
+                    aria-label="Nome"
+                    autocomplete="name"
+                    required
+                    class="w-full rounded-lg bg-gray-100 px-5 py-3 placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F928C]"
+                >
+                <input
+                    v-model.trim="email"
+                    type="email"
+                    placeholder="E-mail"
+                    aria-label="E-mail para cadastro"
+                    autocomplete="email"
+                    required
+                    class="w-full rounded-lg bg-gray-100 px-5 py-3 placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F928C]"
+                >
+                <input
+                    v-model="senha"
+                    type="password"
+                    placeholder="Senha"
+                    aria-label="Senha para cadastro"
+                    autocomplete="new-password"
+                    required
+                    minlength="8"
+                    class="w-full rounded-lg bg-gray-100 px-5 py-3 placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F928C]"
+                >
+                <button
+                    type="submit"
+                    :disabled="enviando"
+                    class="w-full rounded-lg bg-[#006464] px-5 py-3 font-bold text-white transition hover:bg-[#0F928C] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    {{ enviando ? 'Enviando solicitação...' : 'Enviar solicitação' }}
+                </button>
+                <p v-if="mensagem" class="text-sm text-[#006464]" role="status" aria-live="polite">
+                    {{ mensagem }}
+                </p>
+                <p v-if="erro" class="text-sm text-red-700" role="alert">
+                    {{ erro }}
+                </p>
+                <p class="text-center text-xs text-gray-500">Aguarde a aprovação do administrador.</p>
             </form>
         </div>
 
@@ -57,6 +122,78 @@
 
   </div>
 </template>
+
+<script setup>
+import { ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useAuthStore } from '../Stores/auth.js';
+import api from '../services/api';
+
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
+const loginEmail = ref('');
+const loginSenha = ref('');
+const entrando = ref(false);
+const erroLogin = ref('');
+const cadastroAberto = ref(false);
+const enviando = ref(false);
+const nome = ref('');
+const email = ref('');
+const senha = ref('');
+const mensagem = ref('');
+const erro = ref('');
+
+const entrar = async () => {
+    if (entrando.value) return;
+
+    entrando.value = true;
+    erroLogin.value = '';
+
+    try {
+        await authStore.login(loginEmail.value, loginSenha.value);
+        const redirect = route.query.redirect;
+        const destino = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+            ? redirect
+            : '/dashboard';
+        await router.push(destino);
+    } catch (error) {
+        erroLogin.value = error.response?.data?.message || 'Não foi possível entrar. Verifique seu e-mail e sua senha.';
+    } finally {
+        entrando.value = false;
+    }
+};
+
+const alternarCadastro = () => {
+    cadastroAberto.value = !cadastroAberto.value;
+    mensagem.value = '';
+    erro.value = '';
+};
+
+const cadastrar = async () => {
+    if (enviando.value) return;
+
+    enviando.value = true;
+    mensagem.value = '';
+    erro.value = '';
+
+    try {
+        await api.post('/auth/register', {
+            nome: nome.value,
+            email: email.value,
+            senha: senha.value,
+        });
+        mensagem.value = 'Solicitação enviada. Aguarde a aprovação do administrador.';
+        nome.value = '';
+        email.value = '';
+        senha.value = '';
+    } catch (error) {
+        erro.value = error.response?.data?.message || 'Não foi possível cadastrar.';
+    } finally {
+        enviando.value = false;
+    }
+};
+</script>
 
 <!-- A tag style deve ficar fora do template, preferencialmente no final -->
 <style scoped>
