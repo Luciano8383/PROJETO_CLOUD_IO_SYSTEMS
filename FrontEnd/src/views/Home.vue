@@ -20,9 +20,9 @@
   </nav>
 
   <div>
-    <a href="#" class="px-7 py-3.5 rounded-full border border-[#BEED3B]/50 text-[#BEED3B] hover:bg-[#BEED3B] hover:text-[#484848] transition font-medium text-sm">
-      Login (CTA)
-    </a>
+    <router-link to="/login" class="px-7 py-3.5 rounded-full border border-[#BEED3B]/50 text-[#BEED3B] hover:bg-[#BEED3B] hover:text-[#484848] transition font-medium text-sm">
+      Login 
+    </router-link>
   </div>
 </header>
 

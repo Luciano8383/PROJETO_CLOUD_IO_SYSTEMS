@@ -1,7 +1,4 @@
 
-
-
-
 <template>
   <!-- Fundo principal alterado para BRANCO (bg-white) -->
   <div class="bg-[#484848] text-white min-h-screen flex items-center justify-center p-4 font-sans selection:bg-[#00C9D1] selection:text-[#484848]">

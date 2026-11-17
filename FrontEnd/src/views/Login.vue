@@ -18,7 +18,7 @@
             
             <!-- Botão "Acessar o site" -->
             <div class="mt-auto relative z-10">
-                <button class="bg-[#BEED3B] text-[#484848] font-medium px-4 py-2 rounded-full flex items-center gap-2 hover:bg-[#BEED3B]/90 transition">
+                <button @click="router.push({ name: 'Home' })" class="bg-[#BEED3B] text-[#484848] font-medium px-4 py-2 rounded-full flex items-center gap-2 hover:bg-[#BEED3B]/90 transition">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                     </svg>
@@ -73,6 +73,7 @@
                     aria-label="Nome"
                     autocomplete="name"
                     required
+                    maxlength="120"
                     class="w-full rounded-lg bg-gray-100 px-5 py-3 placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F928C]"
                 >
                 <input
@@ -82,6 +83,7 @@
                     aria-label="E-mail para cadastro"
                     autocomplete="email"
                     required
+                    maxlength="160"
                     class="w-full rounded-lg bg-gray-100 px-5 py-3 placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F928C]"
                 >
                 <input
@@ -92,6 +94,9 @@
                     autocomplete="new-password"
                     required
                     minlength="8"
+                    maxlength="72"
+                    pattern="(?=.*[A-Za-z])(?=.*\d).{8,72}"
+                    title="Use de 8 a 72 caracteres, incluindo letras e números."
                     class="w-full rounded-lg bg-gray-100 px-5 py-3 placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F928C]"
                 >
                 <button
@@ -144,6 +149,19 @@ const senha = ref('');
 const mensagem = ref('');
 const erro = ref('');
 
+const mensagemDeErro = (error, fallback) => {
+    const data = error.response?.data;
+    const campos = data?.campos && Object.entries(data.campos)
+        .map(([campo, detalhe]) => `${campo}: ${detalhe}`)
+        .join(' ');
+
+    if (campos) return `${data.erro || 'Verifique os campos informados.'} ${campos}`;
+    if (typeof data?.erro === 'string') return data.erro;
+    if (typeof data?.message === 'string') return data.message;
+    if (!error.response) return 'Não foi possível conectar ao backend. Verifique se ele está em execução.';
+    return fallback;
+};
+
 const entrar = async () => {
     if (entrando.value) return;
 
@@ -158,7 +176,7 @@ const entrar = async () => {
             : '/dashboard';
         await router.push(destino);
     } catch (error) {
-        erroLogin.value = error.response?.data?.message || 'Não foi possível entrar. Verifique seu e-mail e sua senha.';
+        erroLogin.value = mensagemDeErro(error, 'Não foi possível entrar. Verifique seu e-mail e sua senha.');
     } finally {
         entrando.value = false;
     }
@@ -178,17 +196,17 @@ const cadastrar = async () => {
     erro.value = '';
 
     try {
-        await api.post('/auth/register', {
+        const { data } = await api.post('/auth/register', {
             nome: nome.value,
             email: email.value,
             senha: senha.value,
         });
-        mensagem.value = 'Solicitação enviada. Aguarde a aprovação do administrador.';
+        mensagem.value = data.mensagem || 'Solicitação enviada. Aguarde a aprovação do administrador.';
         nome.value = '';
         email.value = '';
         senha.value = '';
     } catch (error) {
-        erro.value = error.response?.data?.message || 'Não foi possível cadastrar.';
+        erro.value = mensagemDeErro(error, 'Não foi possível cadastrar.');
     } finally {
         enviando.value = false;
     }

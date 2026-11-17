@@ -17,8 +17,7 @@ const routes = [
      {
         path: '/upload',
         name: 'Upload',
-        component: () => import('../views/Upload.vue'),
-        meta: { requiresAuth: true }
+         component: () => import('../views/Upload.vue')
     },
     {
         path: '/dashboard',
@@ -46,7 +45,9 @@ const router = createRouter({
 
 router.beforeEach((to) => {
     const auth = useAuthStore()
-    if (to.meta.requiresAuth && !auth.logado) return '/upload'
+    if (to.meta.requiresAuth && !auth.logado) {
+        return { name: 'Login', query: { redirect: to.fullPath } }
+    }
     if (to.meta.admin && !auth.isAdmin) return '/dashboard'
 })
 
