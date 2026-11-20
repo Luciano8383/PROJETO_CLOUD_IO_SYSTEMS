@@ -22,6 +22,7 @@ getters: {
   inconsistencias: (state) => 
 state.dadosTratados.reduce((linhasComErro, cliente, index) => {
   const motivos = [];
+  const codigo = String(cliente.codigo_cliente || "").trim();
   const nivel = String (cliente.nivel_cliente|| "").trim().toUpperCase();
   const faturamentoOriginal = cliente.faturamento_anual;
   const faturamentoTexto = String(faturamentoOriginal ?? "").trim().toLowerCase();
@@ -43,6 +44,18 @@ state.dadosTratados.reduce((linhasComErro, cliente, index) => {
 
   if (!String (cliente.segmento || "").trim()) {
     motivos.push("Segmento não pode ser vazio.");
+  }
+
+  if (!codigo) {
+    motivos.push("Código do cliente não pode ser vazio.");
+  }
+
+  if (!String(cliente.servicos_contratados || "").trim()) {
+    motivos.push("Serviços contratados não pode ser vazio.");
+  }
+
+  if (!String(cliente.data_contratacao || "").trim()) {
+    motivos.push("Data de contratação não pode ser vazia.");
   }
 
   if (!["A", "B", "C"].includes(nivel)) {
@@ -100,7 +113,9 @@ actions: {
   },
  
   async processarPlanilha() {
-    if (!this.validarArquivo()) return;
+    if (!this.validarArquivo()) return false;
+
+    this.resultadoEnvio = null;
 
     this.carregando = true;
 
@@ -124,6 +139,7 @@ actions: {
       this.dadosTratados = linhas.map((linha)=> this.tratarLinha(linha));
       this.nomeArquivoProcessado = this.arquivo.name;
       await this.enviarLinhasValidadas();
+      return true;
     } finally {
       this.carregando = false;
     }

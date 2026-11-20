@@ -15,15 +15,9 @@
         </router-link>
       </header>
 
-      <aside class="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" role="note">
-        <svg class="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0Z" />
-        </svg>
-        <p>
-          <strong>Modo de demonstração:</strong> as solicitações e decisões abaixo são exemplos temporários desta tela.
-          Aprovações e reprovações ainda não são salvas no banco de dados.
-        </p>
-      </aside>
+      <p v-if="usuarioStore.erro" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+        {{ usuarioStore.erro }}
+      </p>
 
       <section class="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Resumo das solicitações">
         <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -55,7 +49,7 @@
               <option value="PENDENTE">Pendentes</option>
               <option value="TODOS">Todas</option>
               <option value="APROVADO">Aprovadas</option>
-              <option value="REPROVADO">Reprovadas</option>
+              <option value="BLOQUEADO">Bloqueadas</option>
             </select>
           </label>
         </div>
@@ -86,12 +80,8 @@
 
             <dl class="mt-5 grid grid-cols-2 gap-4 border-t border-gray-100 pt-4 text-sm">
               <div>
-                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500">Empresa</dt>
-                <dd class="mt-1 font-medium text-gray-800">{{ solicitacao.empresa }}</dd>
-              </div>
-              <div>
                 <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500">Solicitado em</dt>
-                <dd class="mt-1 font-medium text-gray-800">{{ solicitacao.data }}</dd>
+                <dd class="mt-1 font-medium text-gray-800">{{ formatarData(solicitacao.criadoEm) }}</dd>
               </div>
             </dl>
 
@@ -99,9 +89,9 @@
               <button
                 type="button"
                 class="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300"
-                @click="atualizarStatus(solicitacao.id, 'REPROVADO')"
+                @click="atualizarStatus(solicitacao.id, 'BLOQUEADO')"
               >
-                Reprovar acesso
+                Bloquear acesso
               </button>
               <button
                 type="button"
@@ -120,23 +110,20 @@
         </div>
       </section>
 
-      <p v-if="mensagem" class="rounded-lg border border-[#0F928C]/30 bg-white px-4 py-3 text-sm font-medium text-[#006464]" role="status">
-        {{ mensagem }}
+      <p v-if="usuarioStore.mensagem" class="rounded-lg border border-[#0F928C]/30 bg-white px-4 py-3 text-sm font-medium text-[#006464]" role="status">
+        {{ usuarioStore.mensagem }}
       </p>
     </div>
   </main>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { useUsuarioStore } from '../Stores/UsuarioStore';
 
-const solicitacoes = ref([
-  { id: 1, nome: 'Ana Souza', email: 'ana.souza@example.com', empresa: 'Acme Tecnologia', data: '15/10/2026', status: 'PENDENTE' },
-  { id: 2, nome: 'Marcos Lima', email: 'marcos.lima@example.com', empresa: 'Comercial Horizonte', data: '14/10/2026', status: 'PENDENTE' },
-  { id: 3, nome: 'Beatriz Costa', email: 'beatriz.costa@example.com', empresa: 'Grupo Vale Verde', data: '13/10/2026', status: 'APROVADO' },
-]);
+const usuarioStore = useUsuarioStore();
 const filtro = ref('PENDENTE');
-const mensagem = ref('');
+const solicitacoes = computed(() => usuarioStore.solicitacoes);
 
 const solicitacoesFiltradas = computed(() =>
   filtro.value === 'TODOS'
@@ -150,12 +137,14 @@ const totalAprovadas = computed(() =>
   solicitacoes.value.filter((solicitacao) => solicitacao.status === 'APROVADO').length
 );
 
-const atualizarStatus = (id, status) => {
-  const solicitacao = solicitacoes.value.find((item) => item.id === id);
-  if (!solicitacao || solicitacao.status !== 'PENDENTE') return;
+const atualizarStatus = async (id, status) => {
+  await usuarioStore.alterarStatus(id, status);
+};
 
-  solicitacao.status = status;
-  mensagem.value = `Solicitação de ${solicitacao.nome} marcada como ${rotuloStatus(status).toLowerCase()} nesta demonstração.`;
+const formatarData = (valor) => {
+  if (!valor) return '—';
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? '—' : data.toLocaleDateString('pt-BR');
 };
 
 const iniciais = (nome) =>
@@ -164,12 +153,16 @@ const iniciais = (nome) =>
 const rotuloStatus = (status) => ({
   PENDENTE: 'Pendente',
   APROVADO: 'Aprovado',
-  REPROVADO: 'Reprovado',
+  BLOQUEADO: 'Bloqueado',
 }[status] || status);
 
 const classesStatus = (status) => ({
   PENDENTE: 'bg-amber-100 text-amber-800',
   APROVADO: 'bg-green-100 text-green-800',
-  REPROVADO: 'bg-red-100 text-red-800',
+  BLOQUEADO: 'bg-red-100 text-red-800',
 }[status] || 'bg-gray-100 text-gray-700');
+
+onMounted(() => {
+  usuarioStore.listar();
+});
 </script>

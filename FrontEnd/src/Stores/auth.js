@@ -11,6 +11,10 @@ export const useAuthStore = defineStore('auth', {
     isAdmin: (state) => state.usuario?.perfil === 'ADMIN',
   },
   actions: {
+    async cadastrar(nome, email, senha) {
+      const { data } = await api.post('/auth/register', { nome, email, senha })
+      return data
+    },
     async login(email, senha) {
       const { data } = await api.post('/auth/login', { email, senha })
       this.token = data.token

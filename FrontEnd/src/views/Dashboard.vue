@@ -1,6 +1,9 @@
 
 <template>
   <div class="min-h-screen bg-[#f3f4f6] text-gray-800 font-sans p-4 md:p-6 selection:bg-[#00C9D1] selection:text-[#484848]">
+    <p v-if="dashboardError" class="mx-auto mb-4 max-w-7xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+      {{ dashboardError }}
+    </p>
     
     <!-- Dashboard Container Main Card -->
     <div class="max-w-7xl mx-auto bg-white border border-gray-300 rounded-lg shadow-md overflow-hidden">
@@ -128,7 +131,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import api from '../services/api';
+import { useDashboardStore } from '../Stores/DashboardStore';
 import {
   Chart,
   PieController,
@@ -153,8 +156,9 @@ let barChartInstance = null;
 // Filtro Selecionado
 const selectedFilter = ref('Todos os Segmentos');
 
-const dashboardData = ref(null);
-const dashboardError = ref('');
+const dashboardStore = useDashboardStore();
+const dashboardData = computed(() => dashboardStore.dados);
+const dashboardError = computed(() => dashboardStore.erro);
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return 'R$ 0';
@@ -300,13 +304,9 @@ watch(selectedFilter, () => {
 
 onMounted(async () => {
   try {
-    const { data } = await api.get('/dashboard');
-    dashboardData.value = data;
+    await dashboardStore.carregar();
   } catch (error) {
-    dashboardError.value =
-      error.response?.data?.message ||
-      error.response?.data?.mensagem ||
-      'Não foi possível carregar os dados do dashboard.';
+    // O erro já é armazenado pelo store e pode ser exibido pela tela.
   } finally {
     initCharts();
   }

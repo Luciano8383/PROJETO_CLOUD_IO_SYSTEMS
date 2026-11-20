@@ -132,7 +132,6 @@
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../Stores/auth.js';
-import api from '../services/api';
 
 const route = useRoute();
 const router = useRouter();
@@ -196,11 +195,7 @@ const cadastrar = async () => {
     erro.value = '';
 
     try {
-        const { data } = await api.post('/auth/register', {
-            nome: nome.value,
-            email: email.value,
-            senha: senha.value,
-        });
+        const data = await authStore.cadastrar(nome.value, email.value, senha.value);
         mensagem.value = data.mensagem || 'Solicitação enviada. Aguarde a aprovação do administrador.';
         nome.value = '';
         email.value = '';

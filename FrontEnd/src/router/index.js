@@ -17,7 +17,8 @@ const routes = [
      {
         path: '/upload',
         name: 'Upload',
-         component: () => import('../views/Upload.vue')
+         component: () => import('../views/Upload.vue'),
+         meta: { requiresAuth: true }
     },
     {
         path: '/dashboard',
@@ -28,13 +29,15 @@ const routes = [
     {
         path: '/relatorio',
         name: 'Relatorio',
-        component: () => import('../views/Relatorio.vue')
+        component: () => import('../views/Relatorio.vue'),
+        meta: { requiresAuth: true }
     },
     {
         path: '/usuarios',
         alias: ['/Usuario', '/usuario'],
         name: 'Usuario',
-        component: () => import('../views/Usuario.vue')
+        component: () => import('../views/Usuario.vue'),
+        meta: { requiresAuth: true, admin: true }
     }
 ]
 

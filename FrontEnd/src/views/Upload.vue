@@ -252,7 +252,8 @@ const processUpload = async () => {
   successMessage.value = '';
 
   try {
-    await uploadStore.processarPlanilha();
+    const processado = await uploadStore.processarPlanilha();
+    if (!processado) return;
     uploadProgress.value = 100;
     successMessage.value = `Arquivo "${selectedFile.value.name}" analisado. ${uploadStore.inconsistencias.length} linha(s) com inconsistências encontrada(s).`;
     selectedFile.value = null;
