@@ -128,6 +128,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
+import api from '../services/api';
 import {
   Chart,
   PieController,
@@ -152,50 +153,56 @@ let barChartInstance = null;
 // Filtro Selecionado
 const selectedFilter = ref('Todos os Segmentos');
 
-// Dados dos Indicadores por Filtro
-const metricsData = {
-  'Todos os Segmentos': { totalClientes: '1.250', faturamentoMedio: 'R$ 450k', servicosAtivos: '3.420' },
-  'Indústria': { totalClientes: '562', faturamentoMedio: 'R$ 620k', servicosAtivos: '1.800' },
-  'Comércio': { totalClientes: '263', faturamentoMedio: 'R$ 310k', servicosAtivos: '670' },
-  'Serviços': { totalClientes: '425', faturamentoMedio: 'R$ 380k', servicosAtivos: '950' }
-};
+const dashboardData = ref(null);
+const dashboardError = ref('');
 
-// Dados para os Gráficos
-const chartDatasets = {
-  'Todos os Segmentos': {
-    pie: [45, 21, 34],
-    bar: [150, 450, 650]
-  },
-  'Indústria': {
-    pie: [100, 0, 0],
-    bar: [70, 210, 282]
-  },
-  'Comércio': {
-    pie: [0, 100, 0],
-    bar: [30, 83, 150]
-  },
-  'Serviços': {
-    pie: [0, 0, 100],
-    bar: [50, 157, 218]
-  }
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return 'R$ 0';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0
+  }).format(value);
 };
 
 // Computed metric
-const filteredMetrics = computed(() => metricsData[selectedFilter.value] || metricsData['Todos os Segmentos']);
+const filteredMetrics = computed(() => {
+  const estatisticas = dashboardData.value?.estatisticas;
+  const resumo = estatisticas?.resumo;
+  const porSegmento = estatisticas?.porSegmento || [];
+  const segmentoSelecionado = selectedFilter.value === 'Todos os Segmentos'
+    ? null
+    : porSegmento.find((item) => item.segmento === selectedFilter.value);
+
+  return {
+    totalClientes: segmentoSelecionado?.clientes ?? resumo?.totalClientes ?? 0,
+    faturamentoMedio: formatCurrency(segmentoSelecionado?.media ?? resumo?.media),
+    servicosAtivos: (estatisticas?.porServico || []).reduce(
+      (total, item) => total + (Number(item.contratos) || 0),
+      0
+    )
+  };
+});
 
 // Inicialização dos Gráficos
 const initCharts = () => {
-  const dataset = chartDatasets[selectedFilter.value];
+  const estatisticas = dashboardData.value?.estatisticas;
+  const segmentos = estatisticas?.porSegmento || [];
+  const niveis = estatisticas?.porNivel || [];
+  const pieData = segmentos.map((item) => item.clientes);
+  const pieLabels = segmentos.map((item) => item.segmento);
+  const barData = niveis.map((item) => item.clientes);
+  const barLabels = niveis.map((item) => `Nível ${item.nivel}`);
 
   // Gráfico de Rosca/Pizza (Pie Chart)
   if (pieCanvas.value) {
     pieChartInstance = new Chart(pieCanvas.value, {
       type: 'pie',
       data: {
-        labels: ['Indústria', 'Comércio', 'Serviços'],
+        labels: pieLabels,
         datasets: [{
-          data: dataset.pie,
-          backgroundColor: ['#484848', '#00C9D1', '#BEED3B'],
+          data: pieData,
+          backgroundColor: ['#484848', '#00C9D1', '#BEED3B', '#006464', '#0F928C', '#8B5CF6'],
           borderWidth: 1.5,
           borderColor: '#ffffff'
         }]
@@ -216,9 +223,9 @@ const initCharts = () => {
     barChartInstance = new Chart(barCanvas.value, {
       type: 'bar',
       data: {
-        labels: ['Nível A', 'Nível B', 'Nível C'],
+        labels: barLabels,
         datasets: [{
-          data: dataset.bar,
+          data: barData,
           backgroundColor: '#006464',
           borderWidth: 0,
           barThickness: 65
@@ -233,9 +240,7 @@ const initCharts = () => {
         scales: {
           y: {
             beginAtZero: true,
-            max: 700,
             ticks: {
-              stepSize: 100,
               color: '#484848',
               font: { size: 11 }
             },
@@ -260,15 +265,31 @@ const initCharts = () => {
 
 // Atualização dinâmica ao mudar o filtro
 const updateCharts = () => {
-  const dataset = chartDatasets[selectedFilter.value];
+  const estatisticas = dashboardData.value?.estatisticas;
+  let segmentos = estatisticas?.porSegmento || [];
+  const niveis = estatisticas?.porNivel || [];
   
   if (pieChartInstance) {
-    pieChartInstance.data.datasets[0].data = dataset.pie;
+    if (selectedFilter.value !== 'Todos os Segmentos') {
+      segmentos = segmentos.filter((item) => item.segmento === selectedFilter.value);
+    }
+    pieChartInstance.data.labels = segmentos.map((item) => item.segmento);
+    pieChartInstance.data.datasets[0].data = segmentos.map((item) => item.clientes);
     pieChartInstance.update();
   }
 
   if (barChartInstance) {
-    barChartInstance.data.datasets[0].data = dataset.bar;
+    let niveisFiltrados = niveis;
+    if (selectedFilter.value !== 'Todos os Segmentos') {
+      const dadosSegmento = (estatisticas?.porSegmento || []).find(
+        (item) => item.segmento === selectedFilter.value
+      );
+      niveisFiltrados = dadosSegmento
+        ? niveis.map((item) => ({ ...item, clientes: item.segmento === selectedFilter.value ? item.clientes : 0 }))
+        : [];
+    }
+    barChartInstance.data.labels = niveisFiltrados.map((item) => `Nível ${item.nivel}`);
+    barChartInstance.data.datasets[0].data = niveisFiltrados.map((item) => item.clientes);
     barChartInstance.update();
   }
 };
@@ -277,8 +298,18 @@ watch(selectedFilter, () => {
   updateCharts();
 });
 
-onMounted(() => {
-  initCharts();
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/dashboard');
+    dashboardData.value = data;
+  } catch (error) {
+    dashboardError.value =
+      error.response?.data?.message ||
+      error.response?.data?.mensagem ||
+      'Não foi possível carregar os dados do dashboard.';
+  } finally {
+    initCharts();
+  }
 });
 </script>
 

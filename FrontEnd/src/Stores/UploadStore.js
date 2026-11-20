@@ -1,5 +1,6 @@
 import {defineStore} from "pinia";
 import * as XLSX from "xlsx";
+import api from "../services/api";
 
 export const useUploadStore = defineStore("upload", {
   state: () => ({
@@ -8,7 +9,8 @@ export const useUploadStore = defineStore("upload", {
     dadosOriginais: [],
     dadosTratados: [],
     erros: [],
-    carregando: false
+    carregando: false,
+    resultadoEnvio: null
     }),
 
 
@@ -121,9 +123,44 @@ actions: {
       this.dadosOriginais = linhas;
       this.dadosTratados = linhas.map((linha)=> this.tratarLinha(linha));
       this.nomeArquivoProcessado = this.arquivo.name;
+      await this.enviarLinhasValidadas();
     } finally {
       this.carregando = false;
     }
+  },
+  async enviarLinhasValidadas() {
+    const linhasValidas = [];
+
+    this.dadosTratados.forEach((linha, index) => {
+      const motivoAtual = this.inconsistencias.find((item) => item.linha === index + 2);
+      if (motivoAtual) return;
+
+      linhasValidas.push({
+        numeroLinha: index + 2,
+        codigoCliente: String(linha.codigo_cliente || "").trim(),
+        nomeCliente: String(linha.nome_cliente || "").trim(),
+        consultor: String(linha.consultor || "").trim(),
+        segmento: String(linha.segmento || "").trim(),
+        nivelCliente: String(linha.nivel_cliente || "").trim(),
+        faturamentoAnual: String(linha.faturamento_anual ?? "").trim(),
+        servicosContratados: String(linha.servicos_contratados || "").trim(),
+        dataContratacao: String(linha.data_contratacao || "").trim(),
+        cidade: String(linha.cidade || "").trim(),
+        uf: String(linha.uf || "").trim()
+      });
+    });
+
+    if (linhasValidas.length === 0) {
+      throw new Error("Não há linhas válidas para enviar à API.");
+    }
+
+    const { data } = await api.post("/uploads/validadas", {
+      arquivoNome: this.nomeArquivoProcessado,
+      descartadas: this.dadosTratados.length - linhasValidas.length,
+      linhas: linhasValidas
+    });
+
+    this.resultadoEnvio = data;
   },
   tratarLinha(linha) {
     const segmentoNormalizado = this.normalizarSegmento(linha.segmento);
